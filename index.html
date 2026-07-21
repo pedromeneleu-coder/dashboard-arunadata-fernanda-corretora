@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Dashboard de performance de Meta Ads da Fernanda Messias Corretora" />
+  <title>Meta Ads Performance — Fernanda Messias Corretora</title>
+
+  <!--
+    ================================================================
+    PUBLICAÇÃO SEGURA
+    1) O navegador consulta apenas a rota /api/meta-ads.
+    2) A rota lê as credenciais nas variáveis de ambiente da Vercel.
+    3) Nenhuma chave do Supabase deve ser adicionada a este arquivo.
+    4) Ao abrir o HTML diretamente no computador, o painel usa dados de demonstração.
+    ================================================================
+  -->
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --ink: #231711;
+      --muted: #8A6E62;
+      --line: #E5D8D1;
+      --page: #E5D8D1;
+      --card: #FBF6F3;
+      --blue: #A63D1F;
+      --blue-dark: #231711;
+      --blue-soft: #F3E8E3;
+      --cyan: #A63D1F;
+      --green: #16a66a;
+      --green-soft: #e8f8f0;
+      --amber: #e89b19;
+      --amber-soft: #fff7df;
+      --red: #dc4c5c;
+      --red-soft: #fff0f1;
+      --shadow: 0 10px 30px rgba(35, 23, 17, .08);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: "DM Sans", system-ui, sans-serif;
+      min-width: 320px;
+    }
+
+    .font-display { font-family: "Manrope", sans-serif; }
+    .shell { width: min(1560px, calc(100% - 40px)); margin: 0 auto; }
+    .topbar {
+      padding: 28px 0 22px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+    }
+    .brand { display: flex; align-items: center; gap: 15px; }
+    .brand-mark {
+      width: 48px; height: 48px; border-radius: 14px;
+      display: grid; place-items: center;
+      color: #231711; font: 800 19px/1 "Manrope";
+      background: linear-gradient(135deg, #FBF6F3, #E5D8D1);
+      border: 1px solid #A63D1F;
+      box-shadow: 0 8px 22px rgba(35, 23, 17, .16);
+    }
+    .eyebrow { color: var(--blue); font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { font: 800 clamp(21px, 2.1vw, 30px)/1.15 "Manrope"; letter-spacing: -.035em; margin: 4px 0 0; }
+    .update-box { text-align: right; color: var(--muted); font-size: 12px; }
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 7px;
+      margin-bottom: 7px; padding: 6px 10px; border-radius: 999px;
+      background: rgba(251,246,243,.82); border: 1px solid var(--line);
+      color: var(--ink); font-weight: 700;
+    }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px rgba(22,166,106,.12); }
+
+    .panel {
+      background: rgba(251,246,243,.97); border: 1px solid rgba(229,216,209,.92);
+      border-radius: 18px; box-shadow: var(--shadow);
+    }
+    .dashboard-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px; align-items: start; transition: .22s ease; }
+    .dashboard-main { min-width: 0; }
+    .filter-toggle {
+      position: fixed; left: 18px; top: 88px; z-index: 95;
+      height: 39px; padding: 0 13px; border: 1px solid #E5D8D1; border-radius: 999px;
+      background: rgba(251,246,243,.95); color: var(--ink); box-shadow: var(--shadow);
+      font: 800 11px "DM Sans"; letter-spacing: .04em; text-transform: uppercase;
+      cursor: pointer; backdrop-filter: blur(8px);
+    }
+    .filter-toggle span { color: var(--blue); margin-right: 6px; }
+    body.filters-collapsed .dashboard-layout { grid-template-columns: minmax(0, 1fr); }
+    body.filters-collapsed .sidebar-panel {
+      position: fixed; left: 18px; top: 138px; z-index: 90; width: min(300px, calc(100vw - 36px));
+      max-height: calc(100vh - 156px); opacity: 0; pointer-events: none;
+      transform: translateX(calc(-100% - 32px));
+    }
+    .filter-panel { padding: 17px 19px; margin-bottom: 22px; }
+    .sidebar-panel { position: sticky; top: 14px; margin-bottom: 0; max-height: calc(100vh - 28px); overflow: auto; transition: .22s ease; }
+    .sidebar-panel .filters-grid { grid-template-columns: 1fr; }
+    .sidebar-panel .reset-btn { width: 100%; }
+    .sidebar-panel .comparison-box { align-items: flex-start; flex-direction: column; }
+    .filters-grid { display: grid; grid-template-columns: repeat(7, minmax(140px, 1fr)); gap: 12px; align-items: end; }
+    .filter-group label { display: block; color: #8A6E62; font-size: 11px; font-weight: 800; margin: 0 0 7px 2px; text-transform: uppercase; letter-spacing: .055em; }
+    .input {
+      width: 100%; height: 42px; padding: 0 11px; border: 1px solid #E5D8D1;
+      border-radius: 10px; background: #FBF6F3; color: var(--ink); font: 600 12px "DM Sans";
+      outline: none; transition: .2s border, .2s box-shadow;
+    }
+    .input:focus { border-color: #A63D1F; box-shadow: 0 0 0 3px rgba(166,61,31,.14); }
+    .reset-btn {
+      height: 42px; border: 0; padding: 0 15px; border-radius: 10px; cursor: pointer;
+      background: var(--blue-soft); color: var(--blue); font-weight: 800; font-size: 12px;
+    }
+    .filter-hint { margin-top: 10px; font-size: 11px; color: #8391a5; }
+    .compare-date-group { display: none; }
+    .compare-date-group.is-visible { display: block; }
+    .comparison-box {
+      margin-top: 12px; padding: 12px 14px; border-radius: 13px;
+      background: #F3E8E3; border: 1px solid #D8B7AA;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      color: #473228; font-size: 12px;
+    }
+    .comparison-box strong { color: var(--ink); }
+    .comparison-badge {
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px;
+      border-radius: 999px; background: #FBF6F3; border: 1px solid #E5D8D1;
+      color: #A63D1F; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em;
+      white-space: nowrap;
+    }
+
+    .section { margin-bottom: 22px; }
+    .section-head { display: flex; justify-content: space-between; align-items: flex-end; margin: 0 2px 12px; gap: 16px; }
+    .section-title { font: 800 16px/1.2 "Manrope"; letter-spacing: -.018em; }
+    .section-sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
+    .section-kicker { font-size: 10px; font-weight: 800; color: var(--blue); text-transform: uppercase; letter-spacing: .12em; }
+    .section-actions { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+    .sort-control label { display: block; color: #8A6E62; font-size: 10px; font-weight: 800; margin: 0 0 6px 2px; text-transform: uppercase; letter-spacing: .055em; }
+    .sort-select { width: 170px; height: 38px; font-size: 12px; }
+
+    .kpi-grid { display: grid; grid-template-columns: repeat(6, minmax(150px, 1fr)); gap: 12px; }
+    .kpi-card { padding: 17px 17px 15px; min-height: 132px; position: relative; overflow: visible; }
+    .kpi-card.hero { background: linear-gradient(145deg, #231711, #473228); color: #FBF6F3; border-color: transparent; box-shadow: 0 12px 30px rgba(35,23,17,.20); }
+    .kpi-top { display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 1; }
+    .kpi-label { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .065em; }
+    .hero .kpi-label { color: #D8B7AA; }
+    .kpi-icon { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--blue-soft); color: var(--blue); font-size: 15px; }
+    .hero .kpi-icon { background: rgba(166,61,31,.22); color: #E5D8D1; }
+    .kpi-value { position: relative; z-index: 1; font: 800 clamp(21px, 1.7vw, 27px)/1 "Manrope"; letter-spacing: -.04em; margin-top: 20px; white-space: nowrap; }
+    .kpi-delta { position: relative; z-index: 1; margin-top: 11px; font-size: 11px; display: flex; align-items: center; gap: 5px; color: var(--muted); }
+    .hero .kpi-delta { color: #D4C0B8; }
+    .kpi-compare-base { position: relative; z-index: 1; margin-top: 6px; font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hero .kpi-compare-base { color: #D4C0B8; }
+    .delta-chip { border-radius: 999px; padding: 3px 6px; font-weight: 800; }
+    .delta-good { color: #067647; background: #d9f6e8; }
+    .delta-bad { color: #b42336; background: #ffe4e8; }
+    .hero .delta-good { color: #D9FBE8; background: rgba(22,166,106,.26); }
+    .hero .delta-bad { color: #FFE4E8; background: rgba(220,76,92,.30); }
+    .kpi-card:focus { outline: 0; box-shadow: 0 0 0 3px rgba(166,61,31,.18), var(--shadow); }
+    .kpi-card.hero:focus { box-shadow: 0 0 0 3px rgba(166,61,31,.30), 0 12px 30px rgba(35,23,17,.20); }
+    .kpi-card:hover, .kpi-card:focus, .kpi-card:focus-within { z-index: 20; }
+    .kpi-tooltip {
+      position: absolute; left: 50%; top: 50%; z-index: 8;
+      width: min(230px, calc(100vw - 32px)); min-height: calc(100% - 18px);
+      opacity: 0; pointer-events: none; transform: translate(-50%, calc(-50% + 8px)) scale(.98);
+      transition: .18s ease; padding: 10px 11px; border-radius: 13px;
+      background: rgba(35, 23, 17, .96); color: #FBF6F3;
+      box-shadow: 0 12px 28px rgba(35, 23, 17, .22);
+      font-size: 10px; backdrop-filter: blur(8px);
+      display: flex; flex-direction: column; justify-content: center;
+    }
+    .kpi-card:hover .kpi-tooltip,
+    .kpi-card:focus-within .kpi-tooltip,
+    .kpi-card:focus .kpi-tooltip { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    .kpi-card:nth-child(6n) .kpi-tooltip { left: auto; right: 9px; transform: translateY(calc(-50% + 8px)) scale(.98); }
+    .kpi-card:nth-child(6n):hover .kpi-tooltip,
+    .kpi-card:nth-child(6n):focus-within .kpi-tooltip,
+    .kpi-card:nth-child(6n):focus .kpi-tooltip { transform: translateY(-50%) scale(1); }
+    .kpi-tooltip-title { font-weight: 800; margin-bottom: 5px; color: #E5D8D1; }
+    .kpi-tooltip-grid { display: grid; gap: 4px; }
+    .kpi-tooltip-row { display: grid; grid-template-columns: minmax(68px, 1fr) minmax(104px, auto); gap: 8px; align-items: center; }
+    .kpi-tooltip-row span:first-child { color: #D4C0B8; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .kpi-tooltip-row strong { color: #FBF6F3; font-weight: 800; text-align: right; white-space: nowrap; }
+    .kpi-tooltip-value { display: inline-flex; align-items: center; justify-content: flex-end; gap: 5px; min-width: 0; overflow: hidden; }
+    .kpi-tooltip-delta { border-radius: 999px; padding: 2px 4px; font-size: 8.5px; font-weight: 800; line-height: 1; white-space: nowrap; flex: 0 0 auto; }
+    .kpi-tooltip-delta.delta-good { color: #D9FBE8; background: rgba(22,166,106,.22); }
+    .kpi-tooltip-delta.delta-bad { color: #FFE4E8; background: rgba(220,76,92,.24); }
+    .kpi-tooltip-delta.delta-neutral { color: #E5D8D1; background: rgba(251,246,243,.12); }
+    .hero .kpi-tooltip { background: rgba(251,246,243,.97); color: #231711; border: 1px solid rgba(229,216,209,.32); }
+    .hero .kpi-tooltip-title, .hero .kpi-tooltip-row strong { color: #231711; }
+    .hero .kpi-tooltip-row span:first-child { color: #8A6E62; }
+    .hero .kpi-tooltip-delta.delta-good { color: #067647; background: #d9f6e8; }
+    .hero .kpi-tooltip-delta.delta-bad { color: #b42336; background: #ffe4e8; }
+    .hero .kpi-tooltip-delta.delta-neutral { color: #8A6E62; background: #E5D8D1; }
+
+    .grid-2 { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; }
+    .grid-half { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .chart-card { padding: 18px; min-width: 0; }
+    .card-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+    .card-title { font: 800 13px/1.25 "Manrope"; letter-spacing: -.01em; }
+    .card-note { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .chart { width: 100%; height: 320px; }
+    .chart.tall { height: 360px; }
+    .chart.compact { height: 280px; }
+
+    .table-card { overflow: hidden; min-width: 0; }
+    .table-card .card-head { padding: 18px 18px 7px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 680px; }
+    th { text-align: left; color: #8A6E62; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; padding: 11px 16px; border-bottom: 1px solid var(--line); background: #F3E8E3; }
+    td { font-size: 12px; padding: 12px 16px; border-bottom: 1px solid #EDE3DE; color: #473228; }
+    tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: #F8F1EE; }
+    .rank { width: 24px; height: 24px; display: inline-grid; place-items: center; border-radius: 7px; background: #E9DDD7; font-weight: 800; color: #473228; }
+    .name-cell { color: var(--ink); font-weight: 700; max-width: 290px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tag { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; }
+    .tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .tag-green { color: #07814f; background: var(--green-soft); }
+    .tag-amber { color: #af7106; background: var(--amber-soft); }
+    .tag-red { color: #c53344; background: var(--red-soft); }
+    .warning-row { background: rgba(255,240,241,.36); }
+    .empty-table { padding: 30px; text-align: center; color: var(--muted); }
+
+    .insight-strip { display: flex; align-items: center; gap: 10px; padding: 11px 14px; background: #F3E8E3; border: 1px solid #D8B7AA; color: #473228; border-radius: 12px; font-size: 12px; }
+    .insight-strip strong { color: var(--blue-dark); }
+    .north-summary { margin-top: 14px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 14px; background: #F3E8E3; border: 1px solid #D8B7AA; border-radius: 14px; color: #473228; font-size: 12px; }
+    .north-summary strong { color: var(--ink); }
+    .north-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border-radius: 999px; background: #231711; color: #FBF6F3; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
+    .decision-grid { display: grid; grid-template-columns: 1.08fr .92fr; gap: 14px; }
+    .decision-card { padding: 18px; min-height: 190px; }
+    .decision-title { font: 800 13px/1.25 "Manrope"; letter-spacing: -.01em; color: var(--ink); }
+    .decision-note { margin-top: 4px; color: var(--muted); font-size: 11px; }
+    .driver-list { display: grid; gap: 8px; margin-top: 14px; }
+    .driver-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 11px; background: #F8F1EE; border: 1px solid #EDE3DE; font-size: 11px; }
+    .driver-row strong { color: var(--ink); }
+    .driver-chip { border-radius: 999px; padding: 3px 7px; font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .driver-good { color: #067647; background: #d9f6e8; }
+    .driver-bad { color: #b42336; background: #ffe4e8; }
+    .driver-neutral { color: #8A6E62; background: #E5D8D1; }
+    .pace-meter { margin-top: 14px; padding: 13px; border-radius: 14px; background: #F8F1EE; border: 1px solid #EDE3DE; }
+    .pace-meter-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; font-size: 11px; color: var(--muted); }
+    .pace-meter-top strong { display: block; margin-top: 2px; font: 800 18px/1 "Manrope"; color: var(--ink); letter-spacing: -.03em; }
+    .pace-track { height: 10px; margin-top: 12px; border-radius: 999px; background: #E9DDD7; overflow: hidden; }
+    .pace-fill { height: 100%; width: 0%; border-radius: inherit; background: linear-gradient(90deg, #A63D1F, #231711); transition: width .2s ease; }
+    .pace-fill.is-over { background: linear-gradient(90deg, #dc4c5c, #8F2431); }
+    .pace-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+    .pace-stat { padding: 9px 10px; border-radius: 11px; background: #FBF6F3; border: 1px solid #EDE3DE; font-size: 11px; color: #8A6E62; }
+    .pace-stat strong { display: block; color: var(--ink); font-size: 12px; margin-top: 2px; }
+    .roadmap-list { display: grid; gap: 8px; margin-top: 14px; }
+    .roadmap-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 9px 10px; border-radius: 11px; background: #F8F1EE; border: 1px solid #EDE3DE; font-size: 11px; }
+    .status-tag { border-radius: 999px; padding: 3px 7px; font-size: 9px; font-weight: 800; white-space: nowrap; text-transform: uppercase; letter-spacing: .04em; }
+    .status-now { color: #067647; background: #d9f6e8; }
+    .status-input { color: #8b6414; background: #fffbeb; }
+    .status-pipeline { color: #473228; background: #E9DDD7; }
+    .loading-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(229,216,209,.92); backdrop-filter: blur(5px); display: grid; place-items: center; }
+    .loading-card { width: min(360px, calc(100% - 40px)); text-align: center; padding: 32px; }
+    .spinner { width: 42px; height: 42px; margin: 0 auto 18px; border: 4px solid #E5D8D1; border-top-color: var(--blue); border-radius: 50%; animation: spin .85s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-banner { display: none; margin-bottom: 16px; padding: 13px 16px; border: 1px solid #ffcbd2; background: #fff1f3; color: #9d2635; border-radius: 12px; font-size: 12px; }
+    .demo-banner { display: none; margin-bottom: 16px; padding: 11px 15px; border: 1px solid #f3df9e; background: #fffbeb; color: #8b6414; border-radius: 12px; font-size: 12px; }
+    #demoBanner { grid-column: 1 / -1; }
+    .no-data { display: none; margin: 0 0 22px; padding: 26px; text-align: center; color: var(--muted); }
+    footer { padding: 10px 0 30px; text-align: center; color: #8A6E62; font-size: 11px; }
+
+    @media (max-width: 1280px) {
+      .dashboard-layout { grid-template-columns: 280px minmax(0, 1fr); }
+      .filters-grid { grid-template-columns: repeat(4, 1fr); }
+      .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 900px) {
+      .shell { width: min(100% - 24px, 1560px); }
+      .topbar { padding-top: 20px; }
+      .dashboard-layout { grid-template-columns: 1fr; }
+      .sidebar-panel { position: static; max-height: none; }
+      body.filters-collapsed .sidebar-panel {
+        position: fixed; left: 12px; top: 118px; width: calc(100vw - 24px);
+        max-height: calc(100vh - 136px); transform: translateX(calc(-100% - 24px));
+      }
+      .filters-grid { grid-template-columns: repeat(2, 1fr); }
+      .grid-2, .grid-half, .grid-3 { grid-template-columns: 1fr; }
+      .decision-grid { grid-template-columns: 1fr; }
+      .chart { height: 300px; }
+    }
+    @media (max-width: 620px) {
+      .topbar { flex-direction: column; }
+      .update-box { text-align: left; }
+      .filters-grid, .kpi-grid { grid-template-columns: 1fr 1fr; }
+      .kpi-card { min-height: 122px; }
+      .comparison-box { align-items: flex-start; flex-direction: column; }
+      .north-summary { align-items: flex-start; flex-direction: column; }
+    }
+    @media (max-width: 450px) {
+      .filters-grid, .kpi-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="loading" class="loading-overlay">
+    <div class="panel loading-card">
+      <div class="spinner"></div>
+      <div class="font-display" style="font-weight:800">Preparando o dashboard</div>
+      <div id="loadingText" style="font-size:12px;color:var(--muted);margin-top:7px">Buscando dados de mídia…</div>
+    </div>
+  </div>
+
+  <header class="shell topbar">
+    <div class="brand">
+      <div class="brand-mark">F</div>
+      <div>
+        <div class="eyebrow">Inteligência de mídia</div>
+        <h1>Meta Ads Performance — Fernanda Messias Corretora</h1>
+      </div>
+    </div>
+    <div class="update-box">
+      <div class="status-pill"><span class="status-dot"></span><span id="connectionStatus">Conectando</span></div>
+      <div>Última atualização: <strong id="lastUpdate">—</strong></div>
+    </div>
+  </header>
+
+  <main class="shell dashboard-layout">
+    <div id="demoBanner" class="demo-banner"><strong>Modo demonstração:</strong> abra a versão publicada na Vercel para carregar os dados reais.</div>
+
+    <!-- Cabeçalho de filtros globais -->
+    <button id="filterToggle" class="filter-toggle" type="button" aria-expanded="true" aria-controls="filterSidebar"><span>☰</span>Ocultar filtros</button>
+    <section class="panel filter-panel sidebar-panel" id="filterSidebar" aria-label="Filtros globais">
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label for="dateStart">Data inicial</label>
+          <input class="input" type="date" id="dateStart" />
+        </div>
+        <div class="filter-group">
+          <label for="dateEnd">Data final</label>
+          <input class="input" type="date" id="dateEnd" />
+        </div>
+        <div class="filter-group">
+          <label for="comparisonMode">Comparar com</label>
+          <select class="input" id="comparisonMode">
+            <option value="previousPeriod">Período anterior equivalente</option>
+            <option value="previousMonthEquivalent">Mês anterior equivalente</option>
+            <option value="previousMonthFull">Mês anterior completo</option>
+            <option value="custom">Período personalizado</option>
+            <option value="none">Sem comparação</option>
+          </select>
+        </div>
+        <div class="filter-group compare-date-group" id="compareStartGroup">
+          <label for="compareStart">Comparação início</label>
+          <input class="input" type="date" id="compareStart" />
+        </div>
+        <div class="filter-group compare-date-group" id="compareEndGroup">
+          <label for="compareEnd">Comparação fim</label>
+          <input class="input" type="date" id="compareEnd" />
+        </div>
+        <div class="filter-group">
+          <label for="filterEmp">Empreendimento</label>
+          <select class="input" id="filterEmp"></select>
+        </div>
+        <div class="filter-group">
+          <label for="filterPublico">Público / Região</label>
+          <select class="input" id="filterPublico"></select>
+        </div>
+        <div class="filter-group">
+          <label for="filterFormato">Formato criativo</label>
+          <select class="input" id="filterFormato"></select>
+        </div>
+        <div class="filter-group">
+          <label for="monthlyBudget">Or&ccedil;amento mensal</label>
+          <input class="input" type="number" id="monthlyBudget" min="0" step="100" placeholder="R$ / m&ecirc;s" />
+        </div>
+        <button id="resetFilters" class="reset-btn" type="button">Limpar filtros</button>
+      </div>
+      <div class="comparison-box" id="comparisonSummary">
+        <div><strong>Comparação:</strong> selecione um período para ver a base dos KPIs.</div>
+        <span class="comparison-badge">Base dos cards</span>
+      </div>
+      <div class="filter-hint">Dica: use os menus suspensos para segmentar a visão. Para comparar com uma janela específica, escolha “Período personalizado”.</div>
+    </section>
+
+    <div class="dashboard-main">
+    <div id="errorBanner" class="error-banner"></div>
+
+    <div id="noData" class="panel no-data">Nenhum registro encontrado para esta combinação de filtros.</div>
+
+    <!-- Seção 1 — KPIs -->
+    <section class="section" data-dashboard-content>
+      <div class="section-head">
+        <div><div class="section-kicker">Visão executiva</div><div class="section-title">Eficiência de geração de leads</div><div class="section-sub" id="periodLabel">—</div></div>
+        <div class="section-sub" id="recordCount">—</div>
+      </div>
+      <div class="kpi-grid">
+        <article class="panel kpi-card hero" id="kpi-cpl"></article>
+        <article class="panel kpi-card" id="kpi-spend"></article>
+        <article class="panel kpi-card" id="kpi-leads"></article>
+        <article class="panel kpi-card" id="kpi-ctr"></article>
+        <article class="panel kpi-card" id="kpi-cpc"></article>
+        <article class="panel kpi-card" id="kpi-cpm"></article>
+      </div>
+      <div class="north-summary" id="northSummary"></div>
+    </section>
+
+    <!-- Diagnóstico executivo do CPL -->
+    <section class="section" data-dashboard-content>
+      <div class="section-head">
+        <div><div class="section-kicker">Árvore de decisão</div><div class="section-title">O que explica o CPL</div><div class="section-sub">Drivers mecânicos, pacing e próximos desbloqueios</div></div>
+      </div>
+      <div class="decision-grid">
+        <article class="panel decision-card" id="cplDiagnosis"></article>
+        <article class="panel decision-card" id="pacingPanel"></article>
+      </div>
+    </section>
+
+    <!-- Seção 2 — Evolução temporal -->
+    <section class="section" data-dashboard-content>
+      <div class="section-head"><div><div class="section-kicker">Ritmo da operação</div><div class="section-title">Evolução temporal</div><div class="section-sub">Volume e custo vistos no mesmo horizonte</div></div></div>
+      <div class="grid-2">
+        <article class="panel chart-card"><div class="card-head"><div><div class="card-title">Investimento × Leads</div><div class="card-note">Desembolso diário e leads gerados</div></div></div><div id="chartTimeline" class="chart tall"></div></article>
+        <article class="panel chart-card"><div class="card-head"><div><div class="card-title">CPL e média móvel</div><div class="card-note">Custo por lead diário e tendência de 7 dias</div></div></div><div id="chartCpl" class="chart tall"></div></article>
+      </div>
+    </section>
+
+    <!-- Seção 3 — Funil -->
+    <section class="section" data-dashboard-content>
+      <div class="grid-half">
+        <article class="panel chart-card"><div class="card-head"><div><div class="card-title">Funil de conversão</div><div class="card-note">Impressões → Cliques → Leads</div></div></div><div id="chartFunnel" class="chart"></div></article>
+        <article class="panel chart-card"><div class="card-head"><div><div class="card-title">Leitura do funil</div><div class="card-note">Taxas que explicam o CPL</div></div></div><div id="funnelInsights" style="display:grid;gap:10px;margin-top:24px"></div></article>
+      </div>
+    </section>
+
+    <!-- Seção 4 — Empreendimento -->
+    <section class="section" data-dashboard-content>
+      <div class="section-head"><div><div class="section-kicker">Portfólio</div><div class="section-title">Performance por Empreendimento</div><div class="section-sub">Onde a verba está e onde os leads acontecem</div></div></div>
+      <div class="grid-half" style="margin-bottom:14px">
+        <article class="panel chart-card"><div class="card-head"><div><div class="card-title">Distribuição do investimento</div><div class="card-note">Treemap proporcional ao spend</div></div></div><div id="chartTreemap" class="chart"></div></article>
+        <article class="panel chart-card"><div class="card-head"><div><div class="card-title">Leads por empreendimento</div><div class="card-note">Ranking por volume entregue</div></div></div><div id="chartEmpLeads" class="chart"></div></article>
+      </div>
+      <article class="panel table-card"><div class="card-head"><div><div class="card-title">Ranking de eficiência</div><div class="card-note">Semáforo de CPL: verde ≤ limite bom; amarelo = atenção; vermelho &gt; limite de atenção</div></div></div><div class="table-wrap"><table><thead><tr><th>#</th><th>Empreendimento</th><th>Investimento</th><th>Leads</th><th>CPL</th><th>CTR</th><th>Status</th></tr></thead><tbody id="tableEmp"></tbody></table></div></article>
+    </section>
+
+    <!-- Seção 5 — Público -->
+    <section class="section" data-dashboard-content>
+      <div class="section-head"><div><div class="section-kicker">Audiência</div><div class="section-title">Performance por Público</div><div class="section-sub">Escala de leads e eficiência de custo por região</div></div></div>
+    </section>
+
+    <!-- Seção 6 — Formato -->
+    <section class="section" data-dashboard-content>
+      <div class="section-head"><div><div class="section-kicker">Criativos</div><div class="section-title">Performance por Formato Criativo</div><div class="section-sub">Mix de verba, atração e eficiência</div></div></div>
+      <div class="grid-3">
+        <article class="panel chart-card"><div class="card-head"><div><div class="card-title">Mix de investimento</div><div class="card-note">Participação por formato</div></div></div><div id="chartFormatSpend" class="chart compact"></div></article>
+        <article class="panel chart-card"><div class="card-head"><div><div class="card-title">CTR por formato</div><div class="card-note">Capacidade de gerar clique</div></div></div><div id="chartFormatCtr" class="chart compact"></div></article>
+        <article class="panel chart-card"><div class="card-head"><div><div class="card-title">CPL por formato</div><div class="card-note">Custo de aquisição do lead</div></div></div><div id="chartFormatCpl" class="chart compact"></div></article>
+      </div>
+    </section>
+
+    <!-- Seção 7 — Anúncios -->
+    <section class="section" data-dashboard-content>
+      <div class="section-head"><div><div class="section-kicker">Peças</div><div class="section-title">Top & Bottom Anúncios</div><div class="section-sub">Eficiência no nível mais acionável da campanha</div></div></div>
+      <div class="grid-half">
+        <article class="panel table-card"><div class="card-head"><div><div class="card-title">Top 10 — menor CPL</div><div class="card-note">Somente anúncios com pelo menos 1 lead</div></div></div><div class="table-wrap"><table><thead><tr><th>#</th><th>Anúncio</th><th>Investimento</th><th>Leads</th><th>CPL</th></tr></thead><tbody id="tableTopAds"></tbody></table></div></article>
+        <article class="panel table-card"><div class="card-head"><div><div class="card-title" style="color:var(--red)">Bottom 10 — verba em risco</div><div class="card-note">CPL alto e anúncios sem lead priorizados pelo gasto</div></div></div><div class="table-wrap"><table><thead><tr><th>#</th><th>Anúncio</th><th>Investimento</th><th>Leads</th><th>CPL</th></tr></thead><tbody id="tableBottomAds"></tbody></table></div></article>
+      </div>
+    </section>
+
+    <!-- Seção 8 — Análise temporal -->
+    <section class="section" data-dashboard-content>
+      <div class="section-head"><div><div class="section-kicker">Sazonalidade</div><div class="section-title">Mapa de calor de Leads</div><div class="section-sub">Dia da semana × semana do período selecionado</div></div></div>
+      <article class="panel chart-card"><div id="chartHeatmap" class="chart tall"></div></article>
+    </section>
+    </div>
+  </main>
+
+  <footer class="shell">Fernanda Messias Corretora · Meta Ads Intelligence</footer>
+
+  <script>
+    "use strict";
+
+    /* ==============================================================
+       1. CONFIGURAÇÃO DO DASHBOARD
+       ============================================================== */
+    const CONFIG = {
+      API_ENDPOINT: "/api/meta-ads", // Rota serverless; as credenciais ficam somente na Vercel
+      CPL_THRESHOLDS: { good: 50, attention: 90 }, // ← SEMÁFORO: verde ≤ 50; amarelo ≤ 90; vermelho > 90
+      CPL_BENCHMARK: 0, // Preencha quando houver benchmark histórico próprio da Fernanda
+      CPL_TARGET: null, // Preencha quando o alvo formal de CPL for confirmado
+      MONTHLY_BUDGET: 0, // Opcional: preencha para ativar pacing e projeção de budget
+      DEMO_DAYS: 98
+    };
+
+    const COLORS = ["#A63D1F", "#231711", "#8A6E62", "#473228", "#D8B7AA", "#231711", "#7B4A39", "#B89D91", "#E5D8D1"];
+    const state = { raw: [], filtered: [], charts: {}, demoMode: false };
+
+    /* ==============================================================
+       2. FUNÇÕES UTILITÁRIAS E FORMATAÇÃO PT-BR
+       ============================================================== */
+    const $ = id => document.getElementById(id);
+    const safeDiv = (a, b) => Number(b) ? Number(a || 0) / Number(b) : 0;
+    const formatBRL = value => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 }).format(Number(value) || 0);
+    const formatPct = value => new Intl.NumberFormat("pt-BR", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value) || 0);
+    const formatInt = value => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(Number(value) || 0);
+    const formatDate = value => value ? new Intl.DateTimeFormat("pt-BR").format(new Date(`${value}T12:00:00`)) : "—";
+    const formatCompact = value => new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 }).format(Number(value) || 0);
+    const isoDate = date => date.toISOString().slice(0, 10);
+    const dateFromISO = value => new Date(`${value}T12:00:00`);
+    const dayMs = 86400000;
+    const escapeHTML = value => String(value ?? "").replace(/[&<>'"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[ch]));
+    const strip = value => normalizeText(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+    function addDays(date, days) {
+      const d = new Date(date);
+      d.setDate(d.getDate() + days);
+      return d;
+    }
+
+    function addMonthsClamped(date, months) {
+      const d = new Date(date);
+      const day = d.getDate();
+      d.setDate(1);
+      d.setMonth(d.getMonth() + months);
+      const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+      d.setDate(Math.min(day, lastDay));
+      d.setHours(12, 0, 0, 0);
+      return d;
+    }
+
+    function monthStart(date) {
+      const d = new Date(date);
+      d.setDate(1);
+      d.setHours(12, 0, 0, 0);
+      return d;
+    }
+
+    function monthEnd(date) {
+      const d = new Date(date);
+      d.setMonth(d.getMonth() + 1, 0);
+      d.setHours(12, 0, 0, 0);
+      return d;
+    }
+
+    // Corrige sequências comuns de UTF-8 interpretadas como Latin-1 (ex.: VÃ­deo, BrasÃ­lia).
+    function normalizeText(value) {
+      if (value == null) return "";
+      let text = String(value).trim();
+      if (/[ÃÂâ]/.test(text)) {
+        try {
+          const bytes = Uint8Array.from([...text].map(ch => ch.charCodeAt(0) & 255));
+          const fixed = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+          if (!fixed.includes("�")) text = fixed;
+        } catch (_) { /* mantém o original se não for mojibake */ }
+      }
+      return text.replace(/\s+/g, " ").trim();
+    }
+
+    function startOfWeek(date) {
+      const d = new Date(date);
+      const diff = (d.getDay() + 6) % 7;
+      d.setDate(d.getDate() - diff);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+
+    function sumRows(rows) {
+      return rows.reduce((acc, r) => {
+        acc.impressions += r.impressions; acc.clicks += r.clicks; acc.spend += r.spend; acc.leads += r.leads;
+        return acc;
+      }, { impressions: 0, clicks: 0, spend: 0, leads: 0 });
+    }
+
+    function calcKPIs(rows) {
+      const s = sumRows(rows);
+      return { ...s, cpl: safeDiv(s.spend, s.leads), ctr: safeDiv(s.clicks, s.impressions), cpc: safeDiv(s.spend, s.clicks), cpm: safeDiv(s.spend, s.impressions) * 1000, conversion: safeDiv(s.leads, s.clicks), leadRate: safeDiv(s.leads, s.impressions) };
+    }
+
+    function groupBy(rows, key) {
+      const map = new Map();
+      rows.forEach(row => {
+        const label = typeof key === "function" ? key(row) : row[key];
+        if (!map.has(label)) map.set(label, []);
+        map.get(label).push(row);
+      });
+      return map;
+    }
+
+    function aggregateBy(rows, key) {
+      return [...groupBy(rows, key)].map(([name, items]) => ({ name, ...calcKPIs(items), rows: items })).sort((a, b) => b.spend - a.spend);
+    }
+
+    /* ==============================================================
+       3. EXTRAÇÃO DAS DIMENSÕES A PARTIR DOS NOMES
+       ============================================================== */
+    function parseEmpreendimento(adName) {
+      const n = strip(adName);
+      const rules = [
+        ["NIK Frei Caneca", /nik.*frei caneca|frei caneca/], ["Bela Cintra", /bela cintra/],
+        ["Oscar Freire", /oscar freire/], ["One Sarutaiã", /one sarutaia|sarutaia/],
+        ["One Eucaliptos", /one eucaliptos|eucaliptos/], ["Vitacon Pinheiros", /vitacon pinheiros/],
+        ["Moema", /moema/], ["Paulista", /paulista/], ["Jardins", /jardins?/]
+      ];
+      return rules.find(([, regex]) => regex.test(n))?.[0] || "Outros";
+    }
+
+    function parseFormato(adName) {
+      const n = strip(adName);
+      if (/carrossel|carousel/.test(n)) return "Carrossel";
+      if (/reels?/.test(n)) return "Reels";
+      if (/video|motion/.test(n)) return "Vídeo";
+      if (/estatico|imagem|foto|single image/.test(n)) return "Estático";
+      return "Outros";
+    }
+
+    function parsePublico(adsetName) {
+      const n = strip(adsetName);
+      if (/lista|clientes|lookalike|\bll\b|crm/.test(n)) return "Lista de Clientes (LL)";
+      if (/advantage/.test(n)) return "Advantage+";
+      if (/zona do euro|europa|euro/.test(n)) return "Zona do Euro";
+      if (/eua|estados unidos|usa|united states/.test(n)) return "EUA";
+      if (/sudeste/.test(n)) return "Sudeste";
+      if (/nordeste/.test(n)) return "Nordeste";
+      if (/centro.?oeste/.test(n)) return "Centro Oeste";
+      if (/brasil|brazil/.test(n)) return "Brasil";
+      if (/sao paulo|rio de janeiro|brasilia|curitiba|campinas|belo horizonte|salvador|recife|fortaleza|porto alegre|cidade/.test(n)) return "Cidade específica";
+      return "Outros";
+    }
+
+    function parseObjetivo(campaignName) {
+      const raw = normalizeText(campaignName);
+      const bracket = raw.match(/\[([^\]]+)\]/)?.[1] || raw;
+      const n = strip(bracket);
+      if (/engajamento|engagement/.test(n)) return "Engajamento";
+      if (/vendas|sales|convers/.test(n)) return "Vendas";
+      if (/lead|formulario|cadastro/.test(n)) return "Leads (Formulário Nativo)";
+      return "Outros";
+    }
+
+    function sanitizeRow(row) {
+      const clean = {
+        client_id: normalizeText(row.client_id), date: String(row.date || "").slice(0, 10),
+        campaign_id: String(row.campaign_id ?? ""), campaign_name: normalizeText(row.campaign_name),
+        adset_id: String(row.adset_id ?? ""), adset_name: normalizeText(row.adset_name),
+        ad_id: String(row.ad_id ?? ""), ad_name: normalizeText(row.ad_name),
+        impressions: Number(row.impressions) || 0, clicks: Number(row.clicks) || 0,
+        spend: Number(row.spend) || 0, leads: Number(row.leads) || 0
+      };
+      return { ...clean, empreendimento: parseEmpreendimento(clean.ad_name), formato: parseFormato(clean.ad_name), publico: parsePublico(clean.adset_name), objetivo: parseObjetivo(clean.campaign_name) };
+    }
+
+    /* ==============================================================
+       4. CONEXÃO COM A ROTA SEGURA DA VERCEL
+       ============================================================== */
+    async function fetchRowsFromApi() {
+      $("loadingText").textContent = "Buscando dados pela rota segura da Vercel...";
+      const response = await fetch(CONFIG.API_ENDPOINT, { headers: { Accept: "application/json" }, cache: "no-store" });
+      let payload = {};
+      try { payload = await response.json(); } catch (_) {}
+      if (!response.ok) throw new Error(payload.error || `Falha ao buscar dados na API (${response.status})`);
+      const rows = Array.isArray(payload) ? payload : payload.data;
+      if (!Array.isArray(rows)) throw new Error("A API nao retornou uma lista de registros.");
+      return rows.map(sanitizeRow).filter(r => /^\d{4}-\d{2}-\d{2}$/.test(r.date));
+    }
+
+    async function fetchAllRows() {
+      if (location.protocol === "file:") {
+        state.demoMode = true;
+        return generateDemoData();
+      }
+      return fetchRowsFromApi();
+    }
+
+    // Base sintética determinística, usada apenas para pré-visualização sem credenciais.
+    function generateDemoData() {
+      const emps = ["Moema", "Paulista", "NIK Frei Caneca", "Bela Cintra", "Oscar Freire", "One Sarutaiã", "One Eucaliptos", "Vitacon Pinheiros", "Jardins"];
+      const formats = ["Vídeo", "Estático", "Reels", "Carrossel"];
+      const publics = ["Brasil", "Zona do Euro", "EUA", "Sudeste", "Nordeste", "Centro Oeste", "Cidade específica", "Advantage+", "Lista de Clientes (LL)"];
+      const objectives = ["Leads", "Vendas", "Engajamento"];
+      const rows = [];
+      const today = new Date(); today.setHours(12,0,0,0);
+      let seed = 81273;
+      const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      for (let d = CONFIG.DEMO_DAYS - 1; d >= 0; d--) {
+        const date = new Date(today); date.setDate(today.getDate() - d);
+        for (let i = 0; i < 9; i++) {
+          const emp = emps[(i + d) % emps.length], formato = formats[(i * 3 + d) % formats.length], publico = publics[(i * 2 + d) % publics.length], objetivo = objectives[(i + d) % objectives.length];
+          const spend = 38 + rand() * 265 + i * 5;
+          const impressions = Math.round(spend * (42 + rand() * 40));
+          const clicks = Math.round(impressions * (.006 + rand() * .018));
+          const quality = .025 + ((emps.length - i) / emps.length) * .06 + (formato === "Reels" ? .025 : 0);
+          const leads = rand() < .08 ? 0 : Math.max(0, Math.round(clicks * quality * (.55 + rand())));
+          rows.push(sanitizeRow({ client_id: "fernanda_demo", date: isoDate(date), campaign_id: `cmp_${i % 3}`, campaign_name: `[${objetivo}] Aquisição ${emp}`, adset_id: `set_${i}`, adset_name: `${publico} | ${i % 2 ? "25-54" : "Advantage"}`, ad_id: `ad_${i}_${formato}`, ad_name: `${formato} | ${emp} | Variação ${i + 1}`, impressions, clicks, spend: spend.toFixed(2), leads }));
+        }
+      }
+      return rows;
+    }
+
+    /* ==============================================================
+       5. FILTROS E COMPARAÇÃO COM PERÍODO ANTERIOR
+       ============================================================== */
+    function uniqueValues(key) { return [...new Set(state.raw.map(r => r[key]))].sort((a,b) => a.localeCompare(b, "pt-BR")); }
+    function selectedValue(id) { return $(id)?.value || ""; }
+    function fillSelect(id, values) { $(id).innerHTML = `<option value="">Todos</option>` + values.map(v => `<option value="${escapeHTML(v)}">${escapeHTML(v)}</option>`).join(""); }
+
+    function normalizeFilterControls() {
+      ["filterEmp", "filterPublico", "filterFormato"].forEach(id => {
+        const el = $(id);
+        if (!el) return;
+        el.className = "input";
+        el.removeAttribute("multiple");
+        el.removeAttribute("title");
+      });
+    }
+
+    function setupFilters() {
+      const dates = state.raw.map(r => r.date).sort();
+      $("dateStart").min = $("dateStart").value = dates[0];
+      $("dateEnd").max = $("dateEnd").value = dates.at(-1);
+      $("compareStart").min = $("compareEnd").min = dates[0];
+      $("compareStart").max = $("compareEnd").max = dates.at(-1);
+      fillSelect("filterEmp", uniqueValues("empreendimento"));
+      fillSelect("filterPublico", uniqueValues("publico"));
+      fillSelect("filterFormato", uniqueValues("formato"));
+      $("monthlyBudget").value = CONFIG.MONTHLY_BUDGET ? String(CONFIG.MONTHLY_BUDGET) : "";
+      syncCustomComparisonDefaults();
+      toggleComparisonInputs();
+    }
+
+    function matchesDimensions(row) {
+      const tests = [["filterEmp","empreendimento"], ["filterPublico","publico"], ["filterFormato","formato"]];
+      return tests.every(([id,key]) => { const selected = selectedValue(id); return !selected || selected === row[key]; });
+    }
+
+    function getFilteredRows() {
+      const start = $("dateStart").value, end = $("dateEnd").value;
+      return state.raw.filter(r => r.date >= start && r.date <= end && matchesDimensions(r));
+    }
+
+    function getEquivalentPreviousPeriod() {
+      const start = dateFromISO($("dateStart").value), end = dateFromISO($("dateEnd").value);
+      const days = Math.max(1, Math.round((end - start) / dayMs) + 1);
+      const prevEnd = addDays(start, -1);
+      const prevStart = addDays(prevEnd, -days + 1);
+      return { start: isoDate(prevStart), end: isoDate(prevEnd), label: "Período anterior equivalente" };
+    }
+
+    function syncCustomComparisonDefaults() {
+      const fallback = getEquivalentPreviousPeriod();
+      if (!$("compareStart").value) $("compareStart").value = fallback.start;
+      if (!$("compareEnd").value) $("compareEnd").value = fallback.end;
+    }
+
+    function toggleComparisonInputs() {
+      const isCustom = $("comparisonMode").value === "custom";
+      ["compareStartGroup", "compareEndGroup"].forEach(id => $(id).classList.toggle("is-visible", isCustom));
+      $("compareStart").disabled = $("compareEnd").disabled = !isCustom;
+      if (isCustom) syncCustomComparisonDefaults();
+    }
+
+    function getComparisonPeriod() {
+      const mode = $("comparisonMode").value;
+      const currentStart = dateFromISO($("dateStart").value), currentEnd = dateFromISO($("dateEnd").value);
+      const days = Math.max(1, Math.round((currentEnd - currentStart) / dayMs) + 1);
+
+      if (mode === "none") return { mode, start: "", end: "", label: "Sem comparação", rows: [] };
+
+      if (mode === "previousMonthEquivalent") {
+        const start = addMonthsClamped(currentStart, -1);
+        const end = addDays(start, days - 1);
+        return buildComparison("Mês anterior equivalente", isoDate(start), isoDate(end), mode);
+      }
+
+      if (mode === "previousMonthFull") {
+        const reference = addMonthsClamped(currentStart, -1);
+        return buildComparison("Mês anterior completo", isoDate(monthStart(reference)), isoDate(monthEnd(reference)), mode);
+      }
+
+      if (mode === "custom") {
+        return buildComparison("Período personalizado", $("compareStart").value, $("compareEnd").value, mode);
+      }
+
+      const previous = getEquivalentPreviousPeriod();
+      return buildComparison(previous.label, previous.start, previous.end, mode);
+    }
+
+    function buildComparison(label, start, end, mode) {
+      if (!start || !end || start > end) return { mode, start, end, label, rows: [] };
+      return { mode, start, end, label, rows: state.raw.filter(r => r.date >= start && r.date <= end && matchesDimensions(r)) };
+    }
+
+    function describeComparison(comparison) {
+      if (comparison.mode === "none") return "Sem período comparativo aplicado aos cards.";
+      const count = formatInt(comparison.rows.length);
+      return `${comparison.label}: ${formatDate(comparison.start)} a ${formatDate(comparison.end)} · ${count} registros usados como base.`;
+    }
+
+    /* ==============================================================
+       6. COMPONENTES E GRÁFICOS ECHARTS
+       ============================================================== */
+    const baseText = { fontFamily: "DM Sans", color: "#8A6E62" };
+    const tooltip = { trigger: "axis", backgroundColor: "rgba(35,23,17,.96)", borderWidth: 0, textStyle: { color: "#FBF6F3", fontFamily: "DM Sans", fontSize: 11 }, axisPointer: { type: "shadow" } };
+    const grid = { left: 18, right: 20, bottom: 20, top: 35, containLabel: true };
+    const axisLine = { lineStyle: { color: "#E5D8D1" } };
+    const splitLine = { lineStyle: { color: "#EDE3DE" } };
+
+    function chart(id, option) {
+      if (!state.charts[id]) state.charts[id] = echarts.init($(id), null, { renderer: "canvas" });
+      state.charts[id].setOption(option, true);
+    }
+
+    function getKpiSecondaryMetricsLegacy(k) {
+      return {
+        cpl: [["CPC", formatBRL(k.cpc)], ["Conversão", formatPct(k.conversion)], ["CTR", formatPct(k.ctr)], ["CPM", formatBRL(k.cpm)]],
+        spend: [["Leads", formatInt(k.leads)], ["CPL", formatBRL(k.cpl)], ["CPC", formatBRL(k.cpc)], ["CTR", formatPct(k.ctr)]],
+        leads: [["Investimento", formatBRL(k.spend)], ["CPL", formatBRL(k.cpl)], ["Conversão", formatPct(k.conversion)], ["Lead rate", formatPct(k.leadRate)]],
+        ctr: [["Cliques", formatInt(k.clicks)], ["Impressões", formatInt(k.impressions)], ["CPC", formatBRL(k.cpc)], ["CPM", formatBRL(k.cpm)]],
+        cpc: [["CTR", formatPct(k.ctr)], ["CPM", formatBRL(k.cpm)], ["Cliques", formatInt(k.clicks)], ["Investimento", formatBRL(k.spend)]],
+        cpm: [["Impressões", formatInt(k.impressions)], ["Investimento", formatBRL(k.spend)], ["CTR", formatPct(k.ctr)], ["CPC", formatBRL(k.cpc)]]
+      };
+    }
+
+    function renderKpiTooltipLegacy(title, metrics = []) {
+      if (!metrics.length) return "";
+      return `<div class="kpi-tooltip" role="tooltip"><div class="kpi-tooltip-title">${escapeHTML(title)}</div><div class="kpi-tooltip-grid">${metrics.map(([label, value]) => `<div class="kpi-tooltip-row"><span>${escapeHTML(label)}</span><strong>${escapeHTML(value)}</strong></div>`).join("")}</div></div>`;
+    }
+
+    function getKpiSecondaryMetrics(k, p) {
+      const metric = (label, value, current, previous, inverse = false) => ({ label, value, current, previous, inverse });
+      return {
+        cpl: [metric("CPC", formatBRL(k.cpc), k.cpc, p.cpc, true), metric("Conversão", formatPct(k.conversion), k.conversion, p.conversion), metric("CTR", formatPct(k.ctr), k.ctr, p.ctr), metric("CPM", formatBRL(k.cpm), k.cpm, p.cpm, true)],
+        spend: [metric("Leads", formatInt(k.leads), k.leads, p.leads), metric("CPL", formatBRL(k.cpl), k.cpl, p.cpl, true), metric("CPC", formatBRL(k.cpc), k.cpc, p.cpc, true), metric("CTR", formatPct(k.ctr), k.ctr, p.ctr)],
+        leads: [metric("Investimento", formatBRL(k.spend), k.spend, p.spend), metric("CPL", formatBRL(k.cpl), k.cpl, p.cpl, true), metric("Conversão", formatPct(k.conversion), k.conversion, p.conversion), metric("Lead rate", formatPct(k.leadRate), k.leadRate, p.leadRate)],
+        ctr: [metric("Cliques", formatInt(k.clicks), k.clicks, p.clicks), metric("Impressões", formatInt(k.impressions), k.impressions, p.impressions), metric("CPC", formatBRL(k.cpc), k.cpc, p.cpc, true), metric("CPM", formatBRL(k.cpm), k.cpm, p.cpm, true)],
+        cpc: [metric("CTR", formatPct(k.ctr), k.ctr, p.ctr), metric("CPM", formatBRL(k.cpm), k.cpm, p.cpm, true), metric("Cliques", formatInt(k.clicks), k.clicks, p.clicks), metric("Investimento", formatBRL(k.spend), k.spend, p.spend)],
+        cpm: [metric("Impressões", formatInt(k.impressions), k.impressions, p.impressions), metric("Investimento", formatBRL(k.spend), k.spend, p.spend), metric("CTR", formatPct(k.ctr), k.ctr, p.ctr), metric("CPC", formatBRL(k.cpc), k.cpc, p.cpc, true)]
+      };
+    }
+
+    function renderSecondaryDelta(metric) {
+      if (!Number(metric.previous)) return `<span class="kpi-tooltip-delta delta-neutral">—</span>`;
+      const change = safeDiv(metric.current - metric.previous, Math.abs(metric.previous));
+      const good = metric.inverse ? change <= 0 : change >= 0;
+      const arrow = change > 0 ? "↑" : change < 0 ? "↓" : "→";
+      return `<span class="kpi-tooltip-delta ${good ? "delta-good" : "delta-bad"}">${arrow} ${formatPct(Math.abs(change))}</span>`;
+    }
+
+    function renderKpiTooltip(title, metrics = []) {
+      if (!metrics.length) return "";
+      return `<div class="kpi-tooltip" role="tooltip"><div class="kpi-tooltip-title">${escapeHTML(title)}</div><div class="kpi-tooltip-grid">${metrics.map(metric => `<div class="kpi-tooltip-row"><span>${escapeHTML(metric.label)}</span><span class="kpi-tooltip-value"><strong>${escapeHTML(metric.value)}</strong>${renderSecondaryDelta(metric)}</span></div>`).join("")}</div></div>`;
+    }
+
+    function getKpiSecondaryMetrics(k, p) {
+      const metric = (label, value, current, previous, inverse = false) => ({ label, value, current, previous, inverse });
+      return {
+        cpl: [metric("Conversão", formatPct(k.conversion), k.conversion, p.conversion)],
+        spend: null,
+        leads: [metric("Conversão", formatPct(k.conversion), k.conversion, p.conversion), metric("Lead rate", formatPct(k.leadRate), k.leadRate, p.leadRate)],
+        ctr: [metric("Cliques", formatInt(k.clicks), k.clicks, p.clicks), metric("Impressões", formatInt(k.impressions), k.impressions, p.impressions)],
+        cpc: [metric("Cliques", formatInt(k.clicks), k.clicks, p.clicks)],
+        cpm: [metric("Impressões", formatInt(k.impressions), k.impressions, p.impressions)]
+      };
+    }
+
+    function renderKpiTooltip(title, metrics = []) {
+      if (metrics === null) return "";
+      const hasMetrics = metrics.length > 0;
+      return `<div class="kpi-tooltip ${hasMetrics ? "" : "is-empty"}" role="tooltip">${hasMetrics ? `<div class="kpi-tooltip-title">${escapeHTML(title)}</div><div class="kpi-tooltip-grid">${metrics.map(metric => `<div class="kpi-tooltip-row"><span>${escapeHTML(metric.label)}</span><span class="kpi-tooltip-value"><strong>${escapeHTML(metric.value)}</strong>${renderSecondaryDelta(metric)}</span></div>`).join("")}</div>` : ""}</div>`;
+    }
+
+    function renderKPI(id, label, icon, value, current, previous, previousValueLabel, comparisonLabel, inverse = false, secondaryMetrics = []) {
+      const hasPrevious = previous !== 0;
+      const change = hasPrevious ? safeDiv(current - previous, Math.abs(previous)) : 0;
+      const good = inverse ? change <= 0 : change >= 0;
+      const arrow = change > 0 ? "↑" : change < 0 ? "↓" : "→";
+      const compareText = hasPrevious ? `Base: ${previousValueLabel}` : "Base: sem dados";
+      const card = $(id);
+      card.setAttribute("tabindex", "0");
+      card.innerHTML = `<div class="kpi-top"><span class="kpi-label">${label}</span><span class="kpi-icon">${icon}</span></div><div class="kpi-value">${value}</div><div class="kpi-delta"><span class="delta-chip ${good ? "delta-good" : "delta-bad"}">${arrow} ${hasPrevious ? formatPct(Math.abs(change)) : "—"}</span><span>${comparisonLabel}</span></div><div class="kpi-compare-base" title="${escapeHTML(compareText)}">${escapeHTML(compareText)}</div>${renderKpiTooltip(`Indicadores que explicam ${label}`, secondaryMetrics)}`;
+    }
+
+    function renderKPIs(rows, comparison) {
+      const k = calcKPIs(rows), p = calcKPIs(comparison.rows);
+      const secondary = getKpiSecondaryMetrics(k, p);
+      const comparisonLabel = comparison.mode === "none" ? "sem comparação" : "vs. comparação";
+      renderKPI("kpi-cpl", "CPL", "◎", formatBRL(k.cpl), k.cpl, p.cpl, formatBRL(p.cpl), comparisonLabel, true, secondary.cpl);
+      renderKPI("kpi-spend", "Investimento", "◫", formatBRL(k.spend), k.spend, p.spend, formatBRL(p.spend), comparisonLabel, false, secondary.spend);
+      renderKPI("kpi-leads", "Leads", "●", formatInt(k.leads), k.leads, p.leads, formatInt(p.leads), comparisonLabel, false, secondary.leads);
+      renderKPI("kpi-ctr", "CTR", "↗", formatPct(k.ctr), k.ctr, p.ctr, formatPct(p.ctr), comparisonLabel, false, secondary.ctr);
+      renderKPI("kpi-cpc", "CPC", "◇", formatBRL(k.cpc), k.cpc, p.cpc, formatBRL(p.cpc), comparisonLabel, true, secondary.cpc);
+      renderKPI("kpi-cpm", "CPM", "▦", formatBRL(k.cpm), k.cpm, p.cpm, formatBRL(p.cpm), comparisonLabel, true, secondary.cpm);
+    }
+
+    function metricChange(current, previous) {
+      return Number(previous) ? safeDiv(current - previous, Math.abs(previous)) : 0;
+    }
+
+    function driverChip(current, previous, inverse = false) {
+      if (!Number(previous)) return `<span class="driver-chip driver-neutral">sem base</span>`;
+      const change = metricChange(current, previous);
+      const good = inverse ? change <= 0 : change >= 0;
+      const arrow = change > 0 ? "↑" : change < 0 ? "↓" : "→";
+      return `<span class="driver-chip ${good ? "driver-good" : "driver-bad"}">${arrow} ${formatPct(Math.abs(change))}</span>`;
+    }
+
+    function renderNorthSummary(k) {
+      const benchmark = Number(CONFIG.CPL_BENCHMARK) || 0;
+      const target = Number(CONFIG.CPL_TARGET) || 0;
+      const benchmarkPart = benchmark ? `Benchmark histórico: <strong>${formatBRL(benchmark)}</strong> · CPL atual ${k.cpl <= benchmark ? "abaixo/melhor" : "acima/pior"} em <strong>${formatPct(Math.abs(metricChange(k.cpl, benchmark)))}</strong>` : "Benchmark histórico não configurado.";
+      const targetPart = target ? `Alvo formal: <strong>${formatBRL(target)}</strong>` : "Alvo formal: pendente de confirmação.";
+      $("northSummary").innerHTML = `<div><strong>CPL é o indicador-norte.</strong> Leads e investimento explicam o resultado; CTR, CPC e CPM diagnosticam a eficiência upstream.<br>${benchmarkPart} · ${targetPart}</div><span class="north-badge">Indicador-norte</span>`;
+    }
+
+    function renderCplDiagnosis(k, p) {
+      const hasComparison = p.spend || p.leads || p.clicks || p.impressions;
+      const headline = hasComparison ? `CPL ${k.cpl <= p.cpl ? "melhorou" : "piorou"} ${formatPct(Math.abs(metricChange(k.cpl, p.cpl)))} vs comparação.` : "Sem base comparativa suficiente para diagnóstico de variação.";
+      const rows = [
+        ["Investimento", formatBRL(k.spend), driverChip(k.spend, p.spend, true)],
+        ["Leads", formatInt(k.leads), driverChip(k.leads, p.leads)],
+        ["Conversão clique → lead", formatPct(k.conversion), driverChip(k.conversion, p.conversion)],
+        ["CTR", formatPct(k.ctr), driverChip(k.ctr, p.ctr)],
+        ["CPC", formatBRL(k.cpc), driverChip(k.cpc, p.cpc, true)]
+      ];
+      $("cplDiagnosis").innerHTML = `<div class="decision-title">Diagnóstico do CPL</div><div class="decision-note">${headline}</div><div class="driver-list">${rows.map(([name,value,chip]) => `<div class="driver-row"><div><strong>${name}</strong><div>${value}</div></div>${chip}</div>`).join("")}</div>`;
+    }
+
+    function renderPacingPanel(rows, k) {
+      const budgetInput = $("monthlyBudget");
+      const budget = Number(budgetInput?.value || CONFIG.MONTHLY_BUDGET) || 0;
+      if (!budget) {
+        $("pacingPanel").innerHTML = `<div class="decision-title">Investimento & pacing</div><div class="decision-note">Disponível assim que o orçamento mensal for informado no CONFIG.MONTHLY_BUDGET.</div><div class="roadmap-list"><div class="roadmap-item"><div><strong>% do orçamento consumido</strong><div>Requer input operacional do gestor.</div></div><span class="status-tag status-input">input</span></div><div class="roadmap-item"><div><strong>Projeção de fechamento</strong><div>Usa ritmo diário × dias do mês.</div></div><span class="status-tag status-input">input</span></div></div>`;
+        $("pacingPanel").innerHTML = `<div class="decision-title">Investimento & pacing</div><div class="decision-note">Informe o or&ccedil;amento mensal na aba lateral para ativar consumo, ritmo e proje&ccedil;&atilde;o.</div><div class="pace-meter"><div class="pace-meter-top"><div>Or&ccedil;amento mensal<strong>&mdash;</strong></div><span class="driver-chip driver-neutral">aguardando input</span></div><div class="pace-track"><div class="pace-fill" style="width:0%"></div></div></div><div class="pace-stats"><div class="pace-stat">Consumido<strong>${formatBRL(k.spend)}</strong></div><div class="pace-stat">Proje&ccedil;&atilde;o<strong>&mdash;</strong></div></div>`;
+        return;
+      }
+      const dates = rows.map(r => r.date).sort();
+      const start = dateFromISO(dates[0]), end = dateFromISO(dates.at(-1));
+      const selectedDays = Math.max(1, Math.round((end - start) / dayMs) + 1);
+      const monthDays = monthEnd(end).getDate();
+      const dailyPace = safeDiv(k.spend, selectedDays);
+      const projected = dailyPace * monthDays;
+      const consumed = safeDiv(k.spend, budget);
+      const projectedUse = safeDiv(projected, budget);
+      const balance = budget - projected;
+      const fill = Math.min(100, Math.max(0, consumed * 100));
+      $("pacingPanel").innerHTML = `<div class="decision-title">Investimento & pacing</div><div class="decision-note">Orçamento configurado: ${formatBRL(budget)}</div><div class="driver-list"><div class="driver-row"><div><strong>Consumido no período</strong><div>${formatBRL(k.spend)}</div></div><span class="driver-chip ${consumed <= 1 ? "driver-good" : "driver-bad"}">${formatPct(consumed)}</span></div><div class="driver-row"><div><strong>Ritmo diário</strong><div>${formatBRL(dailyPace)}</div></div><span class="driver-chip driver-neutral">${formatInt(selectedDays)} dias</span></div><div class="driver-row"><div><strong>Projeção mês</strong><div>${formatBRL(projected)}</div></div><span class="driver-chip ${projected <= budget ? "driver-good" : "driver-bad"}">${formatPct(safeDiv(projected, budget))}</span></div></div>`;
+      $("pacingPanel").innerHTML = `<div class="decision-title">Investimento & pacing</div><div class="decision-note">Proje&ccedil;&atilde;o baseada no ritmo di&aacute;rio do per&iacute;odo selecionado.</div><div class="pace-meter"><div class="pace-meter-top"><div>Or&ccedil;amento mensal<strong>${formatBRL(budget)}</strong></div><span class="driver-chip ${consumed <= 1 ? "driver-good" : "driver-bad"}">${formatPct(consumed)} usado</span></div><div class="pace-track"><div class="pace-fill ${consumed > 1 ? "is-over" : ""}" style="width:${fill}%"></div></div></div><div class="pace-stats"><div class="pace-stat">Consumido no per&iacute;odo<strong>${formatBRL(k.spend)}</strong></div><div class="pace-stat">Ritmo di&aacute;rio<strong>${formatBRL(dailyPace)}</strong></div><div class="pace-stat">Proje&ccedil;&atilde;o do m&ecirc;s<strong>${formatBRL(projected)}</strong></div><div class="pace-stat">${balance >= 0 ? "Folga prevista" : "Estouro previsto"}<strong>${formatBRL(Math.abs(balance))}</strong></div></div><div class="driver-list"><div class="driver-row"><div><strong>Uso projetado do budget</strong><div>${formatInt(selectedDays)} dias analisados de ${formatInt(monthDays)} dias do m&ecirc;s</div></div><span class="driver-chip ${projectedUse <= 1 ? "driver-good" : "driver-bad"}">${formatPct(projectedUse)}</span></div></div>`;
+    }
+
+    function renderRoadmapPanel() {
+      $("roadmapPanel").innerHTML = `<div class="decision-title">Roadmap de leitura</div><div class="decision-note">Separando o que já é leitura do que depende de pipeline ou input.</div><div class="roadmap-list"><div class="roadmap-item"><div><strong>CPL, Leads, Spend, CTR, CPC, CPM</strong><div>Calculados na leitura a partir da base aditiva.</div></div><span class="status-tag status-now">agora</span></div><div class="roadmap-item"><div><strong>Abertura de formulário</strong><div>Destrava funil de 4 etapas.</div></div><span class="status-tag status-pipeline">pipeline</span></div><div class="roadmap-item"><div><strong>Placement e geo reais</strong><div>Destravam CPL/CPM/CPC por posicionamento e região.</div></div><span class="status-tag status-pipeline">pipeline</span></div><div class="roadmap-item"><div><strong>Alvo de CPL e orçamento</strong><div>Destravam alertas, pacing e projeção.</div></div><span class="status-tag status-input">input</span></div></div>`;
+    }
+
+    function renderDecisionLayer(rows, comparison) {
+      const k = calcKPIs(rows), p = calcKPIs(comparison.rows);
+      renderNorthSummary(k);
+      renderCplDiagnosis(k, p);
+      renderPacingPanel(rows, k);
+    }
+
+    function renderTimeline(rows) {
+      const daily = aggregateBy(rows, "date").sort((a,b) => a.name.localeCompare(b.name));
+      const dates = daily.map(x => formatDate(x.name).slice(0,5));
+      chart("chartTimeline", { textStyle: baseText, color: ["#B98F7F", "#A63D1F"], tooltip: { ...tooltip, formatter: p => `${p[0].axisValue}<br>${p.map(x => `${x.marker}${x.seriesName}: <b>${x.seriesName === "Investimento" ? formatBRL(x.value) : formatInt(x.value)}</b>`).join("<br>")}` }, legend: { top: 0, right: 0, itemWidth: 12, textStyle: baseText }, grid: { ...grid, top: 42 }, xAxis: { type: "category", data: dates, axisLine, axisLabel: { fontSize: 10, hideOverlap: true } }, yAxis: [{ type: "value", name: "R$", splitLine, axisLabel: { formatter: v => formatCompact(v), fontSize: 10 } }, { type: "value", name: "", splitLine: { show: false }, axisLabel: { fontSize: 10 } }], series: [{ name: "Investimento", type: "bar", data: daily.map(x => +x.spend.toFixed(2)), barMaxWidth: 17, itemStyle: { borderRadius: [4,4,0,0] } }, { name: "Leads", type: "line", yAxisIndex: 1, data: daily.map(x => x.leads), smooth: .28, symbolSize: 5, lineStyle: { width: 3 }, areaStyle: { opacity: .08 } }] });
+
+      const cpl = daily.map(x => x.leads ? x.cpl : null);
+      const ma7 = cpl.map((_, i) => { const vals = cpl.slice(Math.max(0, i - 6), i + 1).filter(v => v != null); return vals.length ? vals.reduce((a,b) => a+b,0)/vals.length : null; });
+      chart("chartCpl", { textStyle: baseText, color: ["#8A6E62", "#A63D1F"], tooltip: { ...tooltip, formatter: p => `${p[0].axisValue}<br>${p.map(x => `${x.marker}${x.seriesName}: <b>${x.value == null ? "—" : formatBRL(x.value)}</b>`).join("<br>")}` }, legend: { top: 0, right: 0, itemWidth: 12, textStyle: baseText }, grid, xAxis: { type: "category", data: dates, axisLine, axisLabel: { fontSize: 10, hideOverlap: true } }, yAxis: { type: "value", splitLine, axisLabel: { formatter: v => `R$ ${v}`, fontSize: 10 } }, series: [{ name: "CPL diário", type: "line", data: cpl, showSymbol: false, connectNulls: false, lineStyle: { width: 1.5, type: "dashed" } }, { name: "Média móvel 7d", type: "line", data: ma7, smooth: true, showSymbol: false, lineStyle: { width: 3 }, areaStyle: { opacity: .07 } }] });
+    }
+
+    function renderFunnel(rows) {
+      const k = calcKPIs(rows);
+      chart("chartFunnel", { color: ["#C98570", "#A63D1F", "#231711"], tooltip: { trigger: "item", formatter: p => `${p.name}: <b>${formatInt(p.value)}</b>` }, series: [{ type: "funnel", top: 20, bottom: 15, left: "6%", width: "88%", minSize: "15%", maxSize: "100%", sort: "descending", gap: 3, label: { show: true, position: "inside", formatter: p => `${p.name}\n${formatCompact(p.value)}`, fontFamily: "DM Sans", fontWeight: 700, color: "#FBF6F3" }, itemStyle: { borderColor: "#FBF6F3", borderWidth: 2, borderRadius: 5 }, data: [{ name: "Impressões", value: k.impressions }, { name: "Cliques", value: k.clicks }, { name: "Leads", value: k.leads }] }] });
+      $("funnelInsights").innerHTML = [
+        ["CTR", formatPct(k.ctr), "A cada 100 impressões, quantas viram clique."],
+        ["Conversão clique → lead", formatPct(k.conversion), "Qualidade do tráfego após o clique."],
+        ["Lead Rate", formatPct(k.leadRate), "Eficiência de ponta a ponta por impressão."],
+        ["CPC", formatBRL(k.cpc), "Custo do tráfego que alimenta o funil."],
+        ["Precisão atual", "3 etapas", "Abertura de formulário ainda requer pipeline; clique → lead comprime abrir + enviar."]
+      ].map(([name,value,text]) => `<div class="insight-strip"><div style="width:7px;height:36px;border-radius:5px;background:var(--blue)"></div><div><strong>${name}: ${value}</strong><div style="margin-top:2px">${text}</div></div></div>`).join("");
+    }
+
+    function renderEmpreendimentos(rows) {
+      const data = aggregateBy(rows, "empreendimento");
+      chart("chartTreemap", { color: COLORS, tooltip: { trigger: "item", formatter: p => `${p.name}<br>Investimento: <b>${formatBRL(p.value)}</b>` }, series: [{ type: "treemap", roam: false, nodeClick: false, breadcrumb: { show: false }, label: { show: true, formatter: p => `${p.name}\n${formatBRL(p.value)}`, fontFamily: "DM Sans", fontWeight: 700 }, upperLabel: { show: false }, itemStyle: { borderColor: "#fff", borderWidth: 3, gapWidth: 2 }, data: data.map(x => ({ name: x.name, value: +x.spend.toFixed(2) })) }] });
+      const leads = [...data].sort((a,b) => a.leads - b.leads);
+      chart("chartEmpLeads", { textStyle: baseText, color: ["#A63D1F"], tooltip: { ...tooltip, formatter: p => `${p[0].name}: <b>${formatInt(p[0].value)} leads</b>` }, grid: { ...grid, left: 8 }, xAxis: { type: "value", splitLine, axisLabel: { fontSize: 10 } }, yAxis: { type: "category", data: leads.map(x => x.name), axisLine, axisLabel: { fontSize: 10, width: 105, overflow: "truncate" } }, series: [{ type: "bar", data: leads.map(x => x.leads), barMaxWidth: 18, itemStyle: { borderRadius: [0,5,5,0] }, label: { show: true, position: "right", color: "#8A6E62", fontSize: 10 } }] });
+
+      const ranked = [...data].sort((a,b) => (a.leads ? a.cpl : Infinity) - (b.leads ? b.cpl : Infinity));
+      $("tableEmp").innerHTML = ranked.map((x,i) => {
+        const status = x.leads === 0 || x.cpl > CONFIG.CPL_THRESHOLDS.attention ? ["Crítico","tag-red"] : x.cpl > CONFIG.CPL_THRESHOLDS.good ? ["Atenção","tag-amber"] : ["Eficiente","tag-green"];
+        return `<tr><td><span class="rank">${i+1}</span></td><td class="name-cell">${escapeHTML(x.name)}</td><td>${formatBRL(x.spend)}</td><td>${formatInt(x.leads)}</td><td><strong>${x.leads ? formatBRL(x.cpl) : "—"}</strong></td><td>${formatPct(x.ctr)}</td><td><span class="tag ${status[1]}">${status[0]}</span></td></tr>`;
+      }).join("");
+    }
+
+    function renderPublicos(rows) {
+      const data = aggregateBy(rows, "publico").sort((a,b) => b.leads - a.leads);
+      chart("chartPublico", { textStyle: baseText, color: ["#A63D1F", "#231711"], tooltip: { ...tooltip, formatter: p => `${p[0].axisValue}<br>${p.map(x => `${x.marker}${x.seriesName}: <b>${x.seriesName === "CPL" ? formatBRL(x.value) : formatInt(x.value)}</b>`).join("<br>")}` }, legend: { top: 0, right: 0, itemWidth: 12, textStyle: baseText }, grid: { ...grid, top: 42, bottom: 58 }, xAxis: { type: "category", data: data.map(x => x.name), axisLine, axisLabel: { interval: 0, rotate: 25, fontSize: 10 } }, yAxis: [{ type: "value", name: "", splitLine, axisLabel: { fontSize: 10 } }, { type: "value", name: "", splitLine: { show: false }, axisLabel: { formatter: v => `R$ ${v}`, fontSize: 10 } }], series: [{ name: "Leads", type: "bar", data: data.map(x => x.leads), barMaxWidth: 28, itemStyle: { borderRadius: [5,5,0,0] } }, { name: "CPL", type: "bar", yAxisIndex: 1, data: data.map(x => x.leads ? +x.cpl.toFixed(2) : 0), barMaxWidth: 28, itemStyle: { borderRadius: [5,5,0,0] } }] });
+    }
+
+    function renderFormatos(rows) {
+      const data = aggregateBy(rows, "formato");
+      chart("chartFormatSpend", { color: COLORS, tooltip: { trigger: "item", formatter: p => `${p.name}: <b>${formatBRL(p.value)}</b> (${formatPct(p.percent/100)})` }, legend: { bottom: 0, itemWidth: 10, itemHeight: 10, textStyle: { ...baseText, fontSize: 10 } }, series: [{ type: "pie", radius: ["49%","73%"], center: ["50%","42%"], avoidLabelOverlap: true, itemStyle: { borderColor: "#fff", borderWidth: 3 }, label: { show: false }, data: data.map(x => ({ name: x.name, value: +x.spend.toFixed(2) })) }] });
+      const common = (id, metric, formatter, color, inverse = false) => chart(id, { textStyle: baseText, color: [color], tooltip: { ...tooltip, formatter: p => `${p[0].axisValue}: <b>${formatter(p[0].value)}</b>` }, grid: { ...grid, bottom: 46 }, xAxis: { type: "category", data: data.map(x => x.name), axisLine, axisLabel: { rotate: 20, fontSize: 10 } }, yAxis: { type: "value", splitLine, axisLabel: { formatter: v => metric === "ctr" ? `${v}%` : `R$ ${v}`, fontSize: 10 } }, series: [{ type: "bar", data: data.map(x => metric === "ctr" ? +(x.ctr*100).toFixed(2) : (x.leads ? +x.cpl.toFixed(2) : 0)), barMaxWidth: 34, itemStyle: { borderRadius: [6,6,0,0], color: params => inverse && params.value > CONFIG.CPL_THRESHOLDS.attention ? "#dc4c5c" : color } }] });
+      common("chartFormatCtr", "ctr", v => `${Number(v).toFixed(2).replace(".",",")}%`, "#A63D1F");
+      common("chartFormatCpl", "cpl", formatBRL, "#231711", true);
+    }
+
+    function renderAds(rows) {
+      const data = aggregateBy(rows, r => `${r.ad_id}|||${r.ad_name}`).map(x => ({ ...x, adName: x.name.split("|||")[1] || x.name }));
+      const metric = $("adsSortMetric")?.value || "cpl";
+      const meta = {
+        cpl: {
+          topTitle: "Top 10 — menor CPL",
+          topNote: "Somente anúncios com pelo menos 1 lead",
+          bottomTitle: "Bottom 10 — maior CPL",
+          bottomNote: "Anúncios sem lead continuam priorizados pelo gasto",
+          top: items => items.filter(x => x.leads > 0).sort((a,b) => a.cpl - b.cpl),
+          bottom: items => [...items].sort((a,b) => {
+            if (!a.leads && !b.leads) return b.spend - a.spend;
+            if (!a.leads) return -1; if (!b.leads) return 1;
+            return b.cpl - a.cpl;
+          })
+        },
+        spend: {
+          topTitle: "Top 10 — maior investimento",
+          topNote: "Anúncios ordenados pelo maior volume de verba",
+          bottomTitle: "Bottom 10 — menor investimento",
+          bottomNote: "Anúncios com menor investimento no período filtrado",
+          top: items => [...items].sort((a,b) => b.spend - a.spend),
+          bottom: items => [...items].sort((a,b) => a.spend - b.spend)
+        },
+        leads: {
+          topTitle: "Top 10 — mais leads",
+          topNote: "Anúncios ordenados pelo maior volume de leads",
+          bottomTitle: "Bottom 10 — menos leads",
+          bottomNote: "Em empate, prioriza maior investimento para evidenciar risco",
+          top: items => [...items].sort((a,b) => b.leads - a.leads || a.cpl - b.cpl || b.spend - a.spend),
+          bottom: items => [...items].sort((a,b) => a.leads - b.leads || b.spend - a.spend)
+        }
+      }[metric];
+      const cards = [...document.querySelectorAll("#tableTopAds, #tableBottomAds")].map(el => el.closest(".table-card"));
+      const topHead = cards[0], bottomHead = cards[1];
+      if (topHead) { topHead.querySelector(".card-title").textContent = meta.topTitle; topHead.querySelector(".card-note").textContent = meta.topNote; }
+      if (bottomHead) { bottomHead.querySelector(".card-title").textContent = meta.bottomTitle; bottomHead.querySelector(".card-note").textContent = meta.bottomNote; }
+      const top = meta.top(data).slice(0,10);
+      const bottom = meta.bottom(data).slice(0,10);
+      const render = (items, warning) => items.length ? items.map((x,i) => `<tr class="${warning ? "warning-row" : ""}"><td><span class="rank">${i+1}</span></td><td class="name-cell" title="${escapeHTML(x.adName)}">${escapeHTML(x.adName)}</td><td>${formatBRL(x.spend)}</td><td>${formatInt(x.leads)}</td><td><strong>${x.leads ? formatBRL(x.cpl) : "Sem lead"}</strong></td></tr>`).join("") : `<tr><td colspan="5" class="empty-table">Sem dados suficientes</td></tr>`;
+      $("tableTopAds").innerHTML = render(top, false); $("tableBottomAds").innerHTML = render(bottom, true);
+    }
+
+    function renderHeatmap(rows) {
+      const daily = aggregateBy(rows, "date");
+      const firstMonday = startOfWeek(new Date(`${$("dateStart").value}T12:00:00`));
+      const weekLabels = new Map();
+      const rawPoints = daily.map(x => {
+        const d = new Date(`${x.name}T12:00:00`), week = Math.floor((startOfWeek(d) - firstMonday) / 604800000);
+        if (!weekLabels.has(week)) weekLabels.set(week, `Sem. ${formatDate(isoDate(startOfWeek(d))).slice(0,5)}`);
+        return [week, (d.getDay()+6)%7, x.leads];
+      });
+      const sortedWeeks = [...weekLabels.keys()].sort((a,b) => a - b);
+      const weekIndex = new Map(sortedWeeks.map((week, index) => [week, index]));
+      const weeks = sortedWeeks.map(week => weekLabels.get(week));
+      const points = rawPoints.filter(p => weekIndex.has(p[0])).map(p => [weekIndex.get(p[0]), p[1], p[2]]);
+      const max = Math.max(1, ...points.map(p => p[2]));
+      chart("chartHeatmap", { textStyle: baseText, tooltip: { position: "top", formatter: p => `${weeks[p.value[0]]} · ${["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"][p.value[1]]}<br><b>${formatInt(p.value[2])} leads</b>` }, grid: { left: 55, right: 25, top: 38, bottom: 96 }, xAxis: { type: "category", data: weeks, splitArea: { show: true }, axisLabel: { rotate: 35, fontSize: 9, margin: 14 }, axisLine }, yAxis: { type: "category", data: ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"], splitArea: { show: true }, axisLine, axisLabel: { fontSize: 10 } }, visualMap: { min: 0, max, calculable: false, orient: "horizontal", left: "center", bottom: 10, inRange: { color: ["#FBF6F3", "#E5D8D1", "#A63D1F", "#231711"] }, textStyle: { ...baseText, fontSize: 10 } }, series: [{ type: "heatmap", data: points, label: { show: points.length <= 70, fontSize: 9, color: "#231711" }, itemStyle: { borderColor: "#FBF6F3", borderWidth: 2, borderRadius: 3 }, emphasis: { itemStyle: { shadowBlur: 8, shadowColor: "rgba(35,23,17,.22)" } } }] });
+    }
+
+    /* ==============================================================
+       7. RENDERIZAÇÃO CENTRAL E LISTENERS
+       ============================================================== */
+    function organizeDashboardSections() {
+      const sectionOf = selector => document.querySelector(selector)?.closest("section");
+      const decisionSection = sectionOf("#pacingPanel");
+      const heatmapSection = sectionOf("#chartHeatmap");
+      const publicoSection = sectionOf("#chartPublico");
+      const adsSections = [...document.querySelectorAll("#tableTopAds")].map(el => el.closest("section")).filter(Boolean);
+
+      if (publicoSection) publicoSection.remove();
+      document.querySelectorAll(".section-title").forEach(title => {
+        if (title.textContent.includes("Performance por P")) title.closest("section")?.remove();
+      });
+      if (adsSections.length > 1) adsSections.slice(1).forEach(section => section.remove());
+      const adsSection = adsSections[0];
+      if (decisionSection && adsSection && decisionSection.nextElementSibling !== adsSection) decisionSection.after(adsSection);
+      if (adsSection && !$("adsSortMetric")) {
+        const control = document.createElement("div");
+        control.className = "section-actions";
+        control.style.margin = "-6px 2px 12px";
+        control.innerHTML = `<div class="sort-control"><label for="adsSortMetric">Classificar por</label><select class="input sort-select" id="adsSortMetric"><option value="cpl">CPL</option><option value="spend">Investimento</option><option value="leads">Leads</option></select></div>`;
+        adsSection.querySelector(".grid-half")?.before(control);
+      }
+    }
+
+    function setFilterDrawer(open) {
+      document.body.classList.toggle("filters-collapsed", !open);
+      const button = $("filterToggle");
+      if (button) {
+        button.setAttribute("aria-expanded", String(open));
+        button.innerHTML = open ? `<span>☰</span>Ocultar filtros` : `<span>☰</span>Mostrar filtros`;
+      }
+      try { localStorage.setItem("fernandaFiltersCollapsed", open ? "0" : "1"); } catch (_) {}
+      setTimeout(() => Object.values(state.charts).forEach(c => c.resize()), 240);
+    }
+
+    function renderDashboard() {
+      state.filtered = getFilteredRows();
+      const hasData = state.filtered.length > 0;
+      $("noData").style.display = hasData ? "none" : "block";
+      document.querySelectorAll("[data-dashboard-content]").forEach(el => el.style.display = hasData ? "block" : "none");
+      if (!hasData) return;
+      const comparison = getComparisonPeriod();
+      $("periodLabel").textContent = `${formatDate($("dateStart").value)} a ${formatDate($("dateEnd").value)}`;
+      $("recordCount").textContent = `${formatInt(state.filtered.length)} registros · ${formatInt(new Set(state.filtered.map(r => r.ad_id)).size)} anúncios`;
+      $("comparisonSummary").innerHTML = `<div><strong>Período atual:</strong> ${formatDate($("dateStart").value)} a ${formatDate($("dateEnd").value)}<br><strong>Comparação:</strong> ${escapeHTML(describeComparison(comparison))}</div><span class="comparison-badge">${comparison.mode === "none" ? "Sem variação" : "Base dos cards"}</span>`;
+      renderKPIs(state.filtered, comparison);
+      renderDecisionLayer(state.filtered, comparison);
+      renderTimeline(state.filtered);
+      renderFunnel(state.filtered);
+      renderEmpreendimentos(state.filtered);
+      renderFormatos(state.filtered);
+      renderAds(state.filtered);
+      renderHeatmap(state.filtered);
+    }
+
+    function wireEvents() {
+      let timer;
+      const rerender = () => { clearTimeout(timer); timer = setTimeout(renderDashboard, 80); };
+      ["dateStart","dateEnd","filterEmp","filterPublico","filterFormato","compareStart","compareEnd","monthlyBudget","adsSortMetric"].forEach(id => $(id)?.addEventListener("change", rerender));
+      $("filterToggle").addEventListener("click", () => setFilterDrawer(document.body.classList.contains("filters-collapsed")));
+      $("monthlyBudget").addEventListener("input", rerender);
+      $("comparisonMode").addEventListener("change", () => { toggleComparisonInputs(); rerender(); });
+      ["dateStart","dateEnd"].forEach(id => $(id).addEventListener("change", () => {
+        if ($("comparisonMode").value !== "custom") {
+          $("compareStart").value = "";
+          $("compareEnd").value = "";
+          syncCustomComparisonDefaults();
+        }
+      }));
+      $("resetFilters").addEventListener("click", () => {
+        const dates = state.raw.map(r => r.date).sort();
+        $("dateStart").value = dates[0]; $("dateEnd").value = dates.at(-1);
+        $("comparisonMode").value = "previousPeriod";
+        $("compareStart").value = "";
+        $("compareEnd").value = "";
+        syncCustomComparisonDefaults();
+        toggleComparisonInputs();
+        ["filterEmp","filterPublico","filterFormato"].forEach(id => $(id).value = "");
+        $("monthlyBudget").value = CONFIG.MONTHLY_BUDGET ? String(CONFIG.MONTHLY_BUDGET) : "";
+        renderDashboard();
+      });
+      window.addEventListener("resize", () => Object.values(state.charts).forEach(c => c.resize()));
+    }
+
+    /* ==============================================================
+       8. INICIALIZAÇÃO
+       ============================================================== */
+    async function init() {
+      try {
+        organizeDashboardSections();
+        let filtersOpen = true;
+        try { filtersOpen = localStorage.getItem("fernandaFiltersCollapsed") !== "1"; } catch (_) {}
+        setFilterDrawer(filtersOpen);
+        state.raw = await fetchAllRows();
+        if (!state.raw.length) {
+          throw new Error("A rota segura respondeu corretamente, mas nao retornou registros para a Fernanda.");
+        }
+        normalizeFilterControls(); setupFilters(); wireEvents(); renderDashboard();
+        $("lastUpdate").textContent = `${formatDate(state.raw.map(r => r.date).sort().at(-1))} · ${new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(new Date())}`;
+        $("connectionStatus").textContent = state.demoMode ? "Demonstração" : "Supabase conectado";
+        $("demoBanner").style.display = state.demoMode ? "block" : "none";
+      } catch (error) {
+        console.error(error);
+        $("connectionStatus").textContent = "Conexão indisponível";
+        $("errorBanner").style.display = "block";
+        $("errorBanner").innerHTML = `<strong>Não foi possível carregar os dados.</strong> Verifique as variáveis de ambiente do projeto na Vercel e a rota /api/meta-ads. Detalhe: ${escapeHTML(error.message || "erro desconhecido")}`;
+      } finally {
+        $("loading").style.display = "none";
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>
+
